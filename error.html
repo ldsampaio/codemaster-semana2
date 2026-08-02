@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Erro — Página não encontrada</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <span class="badge">Erro 404</span>
+    <h1>Página não encontrada</h1>
+    <p>O recurso solicitado não existe neste bucket S3 ou não está disponível através do CloudFront.</p>
+
+    <div class="architecture">
+      <div class="step">Requisição</div>
+      <span class="arrow">→</span>
+      <div class="step">CloudFront</div>
+      <span class="arrow">→</span>
+      <div class="step">Objeto não encontrado</div>
+    </div>
+
+    <a href="index.html" style="display:inline-block; margin-top:16px; color:#0066cc; font-weight:bold;">
+      Voltar para a página inicial
+    </a>
+
+    <footer>
+      <p>Esta página é servida como Custom Error Response na distribuição CloudFront.</p>
+    </footer>
+  </main>
+</body>
+</html>

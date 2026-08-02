@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frontend na AWS</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <span class="badge">Amazon S3 + CloudFront</span>
+    <h1>Meu frontend está armazenado no Amazon S3</h1>
+    <p>Em breve, este conteúdo será entregue pelo CloudFront através de HTTPS.</p>
+
+    <div class="architecture">
+      <div class="step">Arquivos estáticos</div>
+      <span class="arrow">→</span>
+      <div class="step">Bucket S3 privado</div>
+      <span class="arrow">→</span>
+      <div class="step">CloudFront</div>
+    </div>
+
+    <button id="statusBtn">Verificar status da origem</button>
+    <p id="statusMessage" class="hidden"></p>
+
+    <footer>
+      <p>Página de exemplo — origem privada preparada para CloudFront (OAC).</p>
+    </footer>
+  </main>
+
+  <script src="scripts.js"></script>
+</body>
+</html>
