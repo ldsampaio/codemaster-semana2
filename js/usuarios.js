@@ -2,11 +2,9 @@
  * Módulo de Usuários - Controller da interface
  */
 
-// Aguardar carregamento do DOM
 document.addEventListener('DOMContentLoaded', function() {
     'use strict';
 
-    // Verificar dependência
     if (!window.API) {
         console.error('Módulo API não carregado');
         alert('Erro: Módulo API não carregado');
@@ -21,19 +19,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     console.log('Inicializando usuarios.js. API URL:', config.API_BASE_URL);
 
-    // ============================================
-    // ESTADO
-    // ============================================
-
     const state = {
         usuarios: [],
         editandoId: null,
-        carregando: false
+        carregando: false,
+        respostaBruta: null
     };
-
-    // ============================================
-    // DOM REFERENCES
-    // ============================================
 
     const dom = {
         form: document.getElementById('usuario-form'),
@@ -57,18 +48,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ============================================
-    // RENDERIZAÇÃO
+    // RENDERIZAÇÃO FLEXÍVEL
     // ============================================
 
     function renderizarLista() {
         utils.setLoading(dom.listStatus, false);
 
+        const count = state.usuarios ? state.usuarios.length : 0;
         if (dom.userCount) {
-            dom.userCount.textContent = '(' + state.usuarios.length + ' usuário' + 
-                (state.usuarios.length !== 1 ? 's' : '') + ')';
+            dom.userCount.textContent = '(' + count + ' usuário' + (count !== 1 ? 's' : '') + ')';
         }
 
-        if (state.usuarios.length === 0) {
+        // Se não houver usuários
+        if (!state.usuarios || state.usuarios.length === 0) {
             dom.lista.innerHTML = 
                 '<div class="empty-state">' +
                     '<div class="empty-state-icon">👤</div>' +
@@ -78,43 +70,83 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        dom.lista.innerHTML = state.usuarios.map(function(u) {
-            const isEditing = state.editandoId === u.user_id ? 'editing' : '';
-            const disabled = state.editandoId ? 'disabled' : '';
-            const idade = u.idade ? '🎂 ' + u.idade + ' anos' : '';
-            const idCurto = String(u.user_id).substring(0, 8) + '...';
+        // Tentar renderizar como cards, se falhar mostrar JSON
+        try {
+            const html = state.usuarios.map(function(u, index) {
+                // Verificar se u é um objeto válido
+                if (!u || typeof u !== 'object') {
+                    return '<div class="user-card">Item inválido: ' + utils.escapeHtml(String(u)) + '</div>';
+                }
 
-            return 
-                '<div class="user-card ' + isEditing + '" data-id="' + utils.escapeHtml(u.user_id) + '">' +
-                    '<div class="user-info">' +
-                        '<h3>' + utils.escapeHtml(u.nome) + '</h3>' +
-                        '<p>' + utils.escapeHtml(u.email) + '</p>' +
-                        '<div class="user-meta">' +
-                            (u.idade ? '<span>' + idade + '</span>' : '') +
-                            '<span>🆔 ' + idCurto + '</span>' +
+                const isEditing = state.editandoId === u.user_id ? 'editing' : '';
+                const disabled = state.editandoId ? 'disabled' : '';
+
+                // Extrair campos com fallback seguro
+                const userId = u.user_id || u.id || ('item_' + index);
+                const nome = u.nome || u.name || u.Nome || 'Sem nome';
+                const email = u.email || u.Email || u.mail || 'Sem email';
+                const idade = u.idade || u.age || u.Idade;
+
+                const idadeStr = idade ? '🎂 ' + idade + ' anos' : '';
+                const idCurto = String(userId).substring(0, 12) + (String(userId).length > 12 ? '...' : '');
+
+                return 
+                    '<div class="user-card ' + isEditing + '" data-id="' + utils.escapeHtml(String(userId)) + '">' +
+                        '<div class="user-info">' +
+                            '<h3>' + utils.escapeHtml(String(nome)) + '</h3>' +
+                            '<p>' + utils.escapeHtml(String(email)) + '</p>' +
+                            '<div class="user-meta">' +
+                                (idadeStr ? '<span>' + idadeStr + '</span>' : '') +
+                                '<span>🆔 ' + utils.escapeHtml(idCurto) + '</span>' +
+                            '</div>' +
                         '</div>' +
-                    '</div>' +
-                    '<div class="user-actions">' +
-                        '<button class="btn btn-success btn-sm btn-editar" data-id="' + 
-                            utils.escapeHtml(u.user_id) + '" ' + disabled + '>✏️ Editar</button>' +
-                        '<button class="btn btn-danger btn-sm btn-deletar" data-id="' + 
-                            utils.escapeHtml(u.user_id) + '" ' + disabled + '>🗑️ Deletar</button>' +
-                    '</div>' +
-                '</div>';
-        }).join('');
+                        '<div class="user-actions">' +
+                            '<button class="btn btn-success btn-sm btn-editar" data-id="' + 
+                                utils.escapeHtml(String(userId)) + '" ' + disabled + '>✏️ Editar</button>' +
+                            '<button class="btn btn-danger btn-sm btn-deletar" data-id="' + 
+                                utils.escapeHtml(String(userId)) + '" ' + disabled + '>🗑️ Deletar</button>' +
+                        '</div>' +
+                    '</div>';
+            }).join('');
 
-        // Bind de eventos
-        dom.lista.querySelectorAll('.btn-editar').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                iniciarEdicao(btn.dataset.id);
-            });
-        });
+            dom.lista.innerHTML = html;
 
-        dom.lista.querySelectorAll('.btn-deletar').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                deletarUsuario(btn.dataset.id);
+            // Bind de eventos
+            dom.lista.querySelectorAll('.btn-editar').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    iniciarEdicao(btn.dataset.id);
+                });
             });
-        });
+
+            dom.lista.querySelectorAll('.btn-deletar').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    deletarUsuario(btn.dataset.id);
+                });
+            });
+
+        } catch (erro) {
+            console.error('Erro ao renderizar:', erro);
+            // Fallback: mostrar JSON
+            mostrarComoJSON();
+        }
+    }
+
+    function mostrarComoJSON() {
+        let html = '<div style="background:#f5f5f5;padding:1rem;border-radius:8px;">';
+        html += '<h3 style="margin-bottom:0.5rem;">Dados recebidos (modo debug):</h3>';
+        html += '<pre style="background:#1e293b;color:#e5e7eb;padding:1rem;border-radius:4px;overflow:auto;max-height:400px;font-size:0.75rem;">';
+        html += utils.escapeHtml(JSON.stringify(state.usuarios, null, 2));
+        html += '</pre>';
+
+        if (state.respostaBruta) {
+            html += '<h4 style="margin-top:1rem;margin-bottom:0.5rem;">Resposta bruta da API:</h4>';
+            html += '<pre style="background:#451a03;color:#fed7aa;padding:1rem;border-radius:4px;overflow:auto;max-height:200px;font-size:0.75rem;">';
+            html += utils.escapeHtml(JSON.stringify(state.respostaBruta, null, 2));
+            html += '</pre>';
+        }
+
+        html += '</div>';
+        dom.lista.innerHTML = html;
     }
 
     // ============================================
@@ -126,11 +158,48 @@ document.addEventListener('DOMContentLoaded', function() {
 
         userApi.getAll()
             .then(function(data) {
-                state.usuarios = data.users || [];
+                console.log('Dados recebidos:', data);
+                state.respostaBruta = data;
+
+                // Tentar extrair array de usuários de várias formas possíveis
+                let users = null;
+
+                if (Array.isArray(data)) {
+                    users = data;
+                } else if (data && Array.isArray(data.users)) {
+                    users = data.users;
+                } else if (data && Array.isArray(data.Users)) {
+                    users = data.Users;
+                } else if (data && Array.isArray(data.items)) {
+                    users = data.items;
+                } else if (data && Array.isArray(data.Items)) {
+                    users = data.Items;
+                } else if (data && typeof data === 'object') {
+                    // Tentar encontrar qualquer array no objeto
+                    for (var key in data) {
+                        if (Array.isArray(data[key])) {
+                            users = data[key];
+                            console.log('Array encontrado na chave:', key);
+                            break;
+                        }
+                    }
+                }
+
+                if (!users) {
+                    console.warn('Não foi possível extrair array de usuários. Estrutura:', data);
+                    users = [];
+                }
+
+                state.usuarios = users;
+                logger.log('info', 'Usuários carregados', { 
+                    count: users.length,
+                    estrutura: Object.keys(data || {})
+                });
+
                 renderizarLista();
-                logger.log('info', 'Usuários carregados', { count: state.usuarios.length });
             })
             .catch(function(erro) {
+                console.error('Erro ao carregar:', erro);
                 utils.mostrarAlerta('error', 'Erro ao carregar: ' + erro.message);
                 dom.lista.innerHTML = 
                     '<div class="empty-state">' +
@@ -170,13 +239,13 @@ document.addEventListener('DOMContentLoaded', function() {
             userApi.create(dados);
 
         operacao
-            .then(function() {
+            .then(function(resposta) {
                 const msg = state.editandoId ? 
-                    '✅ Usuário atualizado com sucesso!' : 
-                    '✅ Usuário criado com sucesso!';
+                    '✅ Usuário atualizado!' : 
+                    '✅ Usuário criado!';
                 utils.mostrarAlerta('success', msg);
                 resetarFormulario();
-                return carregarUsuarios();
+                carregarUsuarios();
             })
             .catch(function(erro) {
                 utils.mostrarAlerta('error', '❌ Erro ao salvar: ' + erro.message);
@@ -190,20 +259,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function iniciarEdicao(id) {
         const usuario = state.usuarios.find(function(u) {
-            return u.user_id === id;
+            return (u.user_id || u.id) === id;
         });
 
         if (!usuario) {
-            utils.mostrarAlerta('error', 'Usuário não encontrado');
+            utils.mostrarAlerta('error', 'Usuário não encontrado: ' + id);
             return;
         }
 
         state.editandoId = id;
 
-        dom.userId.value = usuario.user_id;
-        dom.nome.value = usuario.nome;
-        dom.email.value = usuario.email;
-        dom.idade.value = usuario.idade || '';
+        dom.userId.value = usuario.user_id || usuario.id || id;
+        dom.nome.value = usuario.nome || usuario.name || '';
+        dom.email.value = usuario.email || usuario.Email || '';
+        dom.idade.value = usuario.idade || usuario.age || '';
 
         dom.formIcon.textContent = '✏️';
         dom.formTitle.textContent = 'Editar Usuário';
@@ -218,19 +287,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function deletarUsuario(id) {
         const usuario = state.usuarios.find(function(u) {
-            return u.user_id === id;
+            return (u.user_id || u.id) === id;
         });
 
-        if (!usuario) return;
+        if (!usuario) {
+            utils.mostrarAlerta('error', 'Usuário não encontrado');
+            return;
+        }
 
-        if (!confirm('Tem certeza que deseja deletar "' + usuario.nome + '"?')) {
+        const nome = usuario.nome || usuario.name || 'este usuário';
+
+        if (!confirm('Deletar "' + nome + '"?')) {
             return;
         }
 
         userApi.delete(id)
             .then(function() {
-                utils.mostrarAlerta('success', '🗑️ Usuário deletado com sucesso!');
-                return carregarUsuarios();
+                utils.mostrarAlerta('success', '🗑️ Deletado!');
+                carregarUsuarios();
             })
             .catch(function(erro) {
                 utils.mostrarAlerta('error', '❌ Erro ao deletar: ' + erro.message);
@@ -250,27 +324,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ============================================
-    // EVENT LISTENERS
+    // INICIALIZAÇÃO
     // ============================================
 
     dom.form.addEventListener('submit', salvarUsuario);
     dom.btnCancelar.addEventListener('click', resetarFormulario);
 
-    // ============================================
-    // INICIALIZAÇÃO
-    // ============================================
-
     logger.log('info', 'Aplicação iniciada', { 
-        apiUrl: config.API_BASE_URL,
-        timestamp: new Date().toISOString()
+        apiUrl: config.API_BASE_URL
     });
 
     carregarUsuarios();
 
-    // Expor para debug
     window.UsuariosModule = {
         state: state,
         recarregar: carregarUsuarios,
-        resetar: resetarFormulario
+        resetar: resetarFormulario,
+        mostrarJSON: mostrarComoJSON
     };
 });

@@ -2,31 +2,26 @@
  * Módulo de API - Cliente HTTP para backend serverless
  */
 
-// Verificar se config existe
 const CONFIG = window.APP_CONFIG || { API_BASE_URL: '' };
 
 if (!CONFIG.API_BASE_URL) {
-    console.error('APP_CONFIG.API_BASE_URL não definido. Verifique o script de configuração no HTML.');
+    console.error('APP_CONFIG.API_BASE_URL não definido');
 }
-
-// ============================================
-// LOGGER
-// ============================================
 
 const Logger = {
     logs: [],
 
     log: function(tipo, mensagem, dados) {
-        dados = dados || null;
         const entry = {
             timestamp: new Date().toISOString(),
             tipo: tipo,
             mensagem: mensagem,
-            dados: dados
+            dados: dados || null
         };
         this.logs.unshift(entry);
         if (this.logs.length > 50) this.logs.pop();
         this.atualizarDebug();
+        console.log('[' + tipo + ']', mensagem, dados || '');
     },
 
     atualizarDebug: function() {
@@ -47,55 +42,44 @@ const Logger = {
     }
 };
 
-// ============================================
-// HTTP CLIENT
-// ============================================
-
 function apiRequest(endpoint, method, body) {
     method = method || 'GET';
-    body = body || null;
 
     const url = CONFIG.API_BASE_URL + endpoint;
     const options = {
         method: method,
-        headers: {
-            'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' }
     };
 
     if (body) {
         options.body = JSON.stringify(body);
     }
 
-    Logger.log('request', method + ' ' + endpoint, { url: url, body: body });
+    Logger.log('request', method + ' ' + endpoint, { url: url });
 
     return fetch(url, options)
         .then(function(response) {
-            // Log da resposta
-            Logger.log('response', method + ' ' + endpoint + ' → ' + response.status, { 
-                status: response.status
-            });
+            const status = response.status;
 
-            // Clonar resposta para tentar JSON
-            const clone = response.clone();
-
-            return response.json()
-                .then(function(data) {
-                    if (!response.ok) {
-                        throw new Error(data.error || 'HTTP ' + response.status);
-                    }
-                    return data;
-                })
-                .catch(function(err) {
-                    // Se não for JSON, tentar texto
-                    return clone.text()
-                        .then(function(text) {
-                            throw new Error('Resposta não-JSON: ' + text.substring(0, 100));
-                        })
-                        .catch(function() {
-                            throw new Error('Erro ao parsear resposta: ' + err.message);
-                        });
+            return response.text().then(function(text) {
+                Logger.log('response_raw', method + ' ' + endpoint + ' → ' + status, { 
+                    status: status,
+                    body: text.substring(0, 500)
                 });
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    data = { error: 'JSON inválido', raw: text.substring(0, 200) };
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || 'HTTP ' + status);
+                }
+
+                return data;
+            });
         })
         .catch(function(erro) {
             Logger.log('error', method + ' ' + endpoint + ' falhou', { 
@@ -105,10 +89,6 @@ function apiRequest(endpoint, method, body) {
         });
 }
 
-// ============================================
-// API EXPOSITA
-// ============================================
-
 const userApi = {
     getAll: function() { return apiRequest('/users'); },
     getById: function(id) { return apiRequest('/users/' + id); },
@@ -117,15 +97,11 @@ const userApi = {
     delete: function(id) { return apiRequest('/users/' + id, 'DELETE'); }
 };
 
-// ============================================
-// UTILITÁRIOS
-// ============================================
-
 const Utils = {
     escapeHtml: function(text) {
-        if (!text) return '';
+        if (text === null || text === undefined) return '';
         const div = document.createElement('div');
-        div.textContent = text;
+        div.textContent = String(text);
         return div.innerHTML;
     },
 
@@ -134,7 +110,6 @@ const Utils = {
         const container = document.getElementById('alert-container');
 
         if (!container) {
-            console.error('Container de alertas não encontrado');
             alert(mensagem);
             return;
         }
@@ -147,13 +122,9 @@ const Utils = {
 
         container.appendChild(div);
 
-        if (duracao > 0) {
-            setTimeout(function() {
-                if (div.parentNode) div.parentNode.removeChild(div);
-            }, duracao);
-        }
-
-        return div;
+        setTimeout(function() {
+            if (div.parentNode) div.parentNode.removeChild(div);
+        }, duracao);
     },
 
     setLoading: function(elemento, carregando) {
@@ -163,10 +134,6 @@ const Utils = {
     }
 };
 
-// ============================================
-// EXPORTAÇÃO GLOBAL
-// ============================================
-
 window.API = {
     config: CONFIG,
     logger: Logger,
@@ -175,4 +142,4 @@ window.API = {
     request: apiRequest
 };
 
-console.log('API.js carregado com sucesso. URL:', CONFIG.API_BASE_URL);
+console.log('API.js carregado. URL:', CONFIG.API_BASE_URL);
