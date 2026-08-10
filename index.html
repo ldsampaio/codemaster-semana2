@@ -1,31 +1,127 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Frontend na AWS</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Usuários — App Full Stack Serverless</title>
+
+    <!-- CSS externo -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Configuração da API (deve ser ajustado antes do deploy) -->
+    <script>
+        window.APP_CONFIG = {
+            API_BASE_URL: 'https://g9msum3sd3.execute-api.us-east-1.amazonaws.com/dev'
+        };
+    </script>
 </head>
 <body>
-  <main>
-    <section id="usuarios-section">
-    <h2>Gerenciamento de Usuários</h2>
+    <div class="container">
+        <header>
+            <div class="badge">🏗️ Arquitetura Serverless</div>
+            <h1>Gerenciamento de Usuários</h1>
+            <p>Frontend S3 + API Gateway + Lambda + DynamoDB</p>
+        </header>
 
-      <!-- Formulário de criação -->
-      <form id="usuario-form">
-          <input type="hidden" id="user-id">
-          <input type="text" id="user-nome" placeholder="Nome" required>
-          <input type="email" id="user-email" placeholder="Email" required>
-          <input type="number" id="user-idade" placeholder="Idade">
-          <button type="submit">Salvar</button>
-          <button type="button" id="btn-cancelar">Cancelar</button>
-      </form>
+        <!-- Mensagens dinâmicas -->
+        <div id="alert-container"></div>
 
-      <!-- Lista de usuários -->
-      <div id="usuarios-lista">
-          <p>Carregando...</p>
-      </div>
-    </section>
-  </main>
+        <!-- Formulário -->
+        <section class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span id="form-icon">➕</span>
+                    <span id="form-title">Novo Usuário</span>
+                </h2>
+                <span id="form-status" class="status loading" style="display: none;">
+                    <span class="spinner"></span>
+                    Processando...
+                </span>
+            </div>
+
+            <form id="usuario-form">
+                <input type="hidden" id="user-id">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="user-nome">Nome completo *</label>
+                        <input 
+                            type="text" 
+                            id="user-nome" 
+                            placeholder="João Silva"
+                            required
+                            maxlength="100"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="user-email">E-mail *</label>
+                        <input 
+                            type="email" 
+                            id="user-email" 
+                            placeholder="joao@email.com"
+                            required
+                            maxlength="100"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="user-idade">Idade</label>
+                        <input 
+                            type="number" 
+                            id="user-idade" 
+                            placeholder="25"
+                            min="1"
+                            max="150"
+                        >
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="btn-submit">
+                        💾 Salvar
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar" style="display: none;">
+                        ❌ Cancelar
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Lista de usuários -->
+        <section class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    👥 Lista de Usuários
+                    <span id="user-count" style="font-size: 0.875rem; color: var(--gray-600);"></span>
+                </h2>
+                <span id="list-status" class="status loading">
+                    <span class="spinner"></span>
+                    Carregando...
+                </span>
+            </div>
+
+            <div id="usuarios-lista">
+                <!-- Conteúdo dinâmico -->
+            </div>
+        </section>
+
+        <!-- Detalhes técnicos (colapsável) -->
+        <details class="card tech-details">
+            <summary>🔧 Detalhes técnicos (para debug)</summary>
+            <pre id="debug-logs">Aguardando requisições...</pre>
+        </details>
+
+        <footer>
+            <p>
+                🚀 Deploy automático via GitHub Actions | 
+                💰 Custo zero no AWS Free Tier
+            </p>
+        </footer>
+    </div>
+
+    <!-- Scripts (ordem importante: config → api → app) -->
+    <script src="js/api.js"></script>
+    <script src="js/usuarios.js"></script>
 </body>
 </html>
