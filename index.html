@@ -8,26 +8,24 @@
 </head>
 <body>
   <main>
-    <span class="badge">Amazon S3 + CloudFront</span>
-    <h1>Meu frontend está armazenado no Amazon S3</h1>
-    <p>Em breve, este conteúdo será entregue pelo CloudFront através de HTTPS.</p>
+    <section id="usuarios-section">
+    <h2>Gerenciamento de Usuários</h2>
 
-    <div class="architecture">
-      <div class="step">Arquivos estáticos</div>
-      <span class="arrow">→</span>
-      <div class="step">Bucket S3 privado</div>
-      <span class="arrow">→</span>
-      <div class="step">CloudFront</div>
-    </div>
+      <!-- Formulário de criação -->
+      <form id="usuario-form">
+          <input type="hidden" id="user-id">
+          <input type="text" id="user-nome" placeholder="Nome" required>
+          <input type="email" id="user-email" placeholder="Email" required>
+          <input type="number" id="user-idade" placeholder="Idade">
+          <button type="submit">Salvar</button>
+          <button type="button" id="btn-cancelar">Cancelar</button>
+      </form>
 
-    <button id="statusBtn">Verificar status da origem</button>
-    <p id="statusMessage" class="hidden"></p>
-
-    <footer>
-      <p>Página de exemplo — origem privada preparada para CloudFront (OAC). Fazendo uma atualização de código simulada.</p>
-    </footer>
+      <!-- Lista de usuários -->
+      <div id="usuarios-lista">
+          <p>Carregando...</p>
+      </div>
+    </section>
   </main>
-
-  <script src="scripts.js"></script>
 </body>
 </html>
