@@ -41,60 +41,37 @@ document.addEventListener('DOMContentLoaded', function() {
         idade: document.getElementById('user-idade')
     };
 
+    // DEBUG: Verificar elementos DOM
+    console.log('DOM elements:', {
+        form: !!dom.form,
+        lista: !!dom.lista,
+        listaId: dom.lista ? dom.lista.id : 'null',
+        listaParent: dom.lista ? dom.lista.parentNode.tagName : 'null'
+    });
+
     if (!dom.form || !dom.lista) {
         console.error('Elementos do DOM não encontrados');
         return;
     }
 
     // ============================================
-    // HELPERS DE FORMATAÇÃO
-    // ============================================
-
-    function formatarIdade(idade) {
-        if (idade === null || idade === undefined) return null;
-        const num = parseInt(idade);
-        return isNaN(num) ? null : num;
-    }
-
-    function formatarValor(valor) {
-        if (valor === null || valor === undefined) return 'N/A';
-        const num = parseFloat(valor);
-        return isNaN(num) ? 'N/A' : 'R$ ' + num.toFixed(2);
-    }
-
-    function formatarEndereco(endereco) {
-        if (!endereco || typeof endereco !== 'object') return null;
-        const partes = [];
-        if (endereco.rua) partes.push(endereco.rua);
-        if (endereco.cidade) partes.push(endereco.cidade);
-        if (endereco.estado) partes.push(endereco.estado);
-        if (endereco.cep) partes.push('CEP: ' + endereco.cep);
-        return partes.length > 0 ? partes.join(' - ') : null;
-    }
-
-    function formatarPedidos(pedidos) {
-        if (!Array.isArray(pedidos) || pedidos.length === 0) return null;
-        return pedidos.length + ' pedido(s)';
-    }
-
-    function formatarInteresses(interesses) {
-        if (!Array.isArray(interesses) || interesses.length === 0) return null;
-        return interesses.join(', ');
-    }
-
-    // ============================================
-    // RENDERIZAÇÃO
+    // RENDERIZAÇÃO SIMPLIFICADA
     // ============================================
 
     function renderizarLista() {
+        console.log('renderizarLista chamada, usuarios:', state.usuarios);
+
         utils.setLoading(dom.listStatus, false);
 
         const count = state.usuarios ? state.usuarios.length : 0;
+        console.log('Count:', count);
+
         if (dom.userCount) {
             dom.userCount.textContent = '(' + count + ' usuário' + (count !== 1 ? 's' : '') + ')';
         }
 
         if (!state.usuarios || state.usuarios.length === 0) {
+            console.log('Nenhum usuário, mostrando empty state');
             dom.lista.innerHTML = 
                 '<div class="empty-state">' +
                     '<div class="empty-state-icon">👤</div>' +
@@ -103,65 +80,70 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const html = state.usuarios.map(function(u, index) {
-            // Extrair campos com múltiplos fallbacks
-            const userId = u.user_id || u.id || ('item_' + index);
-            const nome = u.nome || u.name || 'Sem nome';
-            const email = u.email || u.Email || '';
-            const idade = formatarIdade(u.idade);
-            const ativo = u.ativo === true || u.ativo === 'true';
+        // Tentar renderizar cada usuário
+        let html = '';
 
-            // Campos opcionais formatados
-            const enderecoStr = formatarEndereco(u.endereco);
-            const pedidosStr = formatarPedidos(u.pedidos);
-            const interessesStr = formatarInteresses(u.interesses);
+        try {
+            state.usuarios.forEach(function(u, index) {
+                console.log('Renderizando usuário', index, ':', u);
 
-            // Badge de status
-            const statusBadge = ativo ? 
-                '<span class="badge-ativo">● Ativo</span>' : 
-                (u.ativo === false ? '<span class="badge-inativo">○ Inativo</span>' : '');
+                // Extrair campos com fallbacks seguros
+                const userId = u.user_id || u.id || ('item_' + index);
+                const nome = u.nome || 'Sem nome';
+                const email = u.email || '';
 
-            // Metadados visíveis
-            const metaItems = [];
-            if (idade) metaItems.push('🎂 ' + idade + ' anos');
-            if (enderecoStr) metaItems.push('📍 ' + enderecoStr);
-            if (pedidosStr) metaItems.push('🛒 ' + pedidosStr);
-            if (interessesStr) metaItems.push('❤️ ' + interessesStr);
-
-            const metaHtml = metaItems.map(function(item) {
-                return '<span class="meta-tag">' + item + '</span>';
-            }).join('');
-
-            return 
-                '<div class="user-card" data-id="' + utils.escapeHtml(String(userId)) + '">' +
-                    '<div class="user-info">' +
-                        '<div class="user-header">' +
-                            '<h3>' + utils.escapeHtml(nome) + '</h3>' +
-                            statusBadge +
+                // Construir card simples
+                const card = 
+                    '<div class="user-card" data-id="' + utils.escapeHtml(String(userId)) + '">' +
+                        '<div class="user-info">' +
+                            '<h3>' + utils.escapeHtml(String(nome)) + '</h3>' +
+                            '<p>' + utils.escapeHtml(String(email)) + '</p>' +
+                            '<p style="font-size:0.75rem;color:#9ca3af;">ID: ' + utils.escapeHtml(String(userId)) + '</p>' +
                         '</div>' +
-                        '<p class="user-email">' + utils.escapeHtml(email) + '</p>' +
-                        '<div class="user-meta">' + metaHtml + '</div>' +
-                        '<p class="user-id">🆔 ' + utils.escapeHtml(String(userId)) + '</p>' +
-                    '</div>' +
-                    '<div class="user-actions">' +
-                        '<button class="btn btn-success btn-sm btn-editar" data-id="' + 
-                            utils.escapeHtml(String(userId)) + '">✏️ Editar</button>' +
-                        '<button class="btn btn-danger btn-sm btn-deletar" data-id="' + 
-                            utils.escapeHtml(String(userId)) + '">🗑️ Deletar</button>' +
-                    '</div>' +
-                '</div>';
-        }).join('');
+                        '<div class="user-actions">' +
+                            '<button class="btn btn-success btn-sm btn-editar" data-id="' + 
+                                utils.escapeHtml(String(userId)) + '">✏️ Editar</button>' +
+                            '<button class="btn btn-danger btn-sm btn-deletar" data-id="' + 
+                                utils.escapeHtml(String(userId)) + '">🗑️ Deletar</button>' +
+                        '</div>' +
+                    '</div>';
 
+                html += card;
+            });
+
+            console.log('HTML gerado, length:', html.length);
+            console.log('Primeiros 200 chars:', html.substring(0, 200));
+
+        } catch (erro) {
+            console.error('Erro ao gerar HTML:', erro);
+            html = '<div class="alert alert-error">Erro ao renderizar: ' + utils.escapeHtml(erro.message) + '</div>';
+        }
+
+        // Inserir no DOM
+        console.log('Inserindo HTML no DOM...');
         dom.lista.innerHTML = html;
+        console.log('HTML inserido. innerHTML length:', dom.lista.innerHTML.length);
+
+        // Verificar se foi inserido
+        if (dom.lista.children.length === 0) {
+            console.error('Nenhum filho inserido! HTML:', html);
+        } else {
+            console.log('Filhos inseridos:', dom.lista.children.length);
+        }
 
         // Bind de eventos
-        dom.lista.querySelectorAll('.btn-editar').forEach(function(btn) {
+        const btnEditar = dom.lista.querySelectorAll('.btn-editar');
+        const btnDeletar = dom.lista.querySelectorAll('.btn-deletar');
+
+        console.log('Botoes encontrados - Editar:', btnEditar.length, 'Deletar:', btnDeletar.length);
+
+        btnEditar.forEach(function(btn) {
             btn.addEventListener('click', function() {
                 iniciarEdicao(btn.dataset.id);
             });
         });
 
-        dom.lista.querySelectorAll('.btn-deletar').forEach(function(btn) {
+        btnDeletar.forEach(function(btn) {
             btn.addEventListener('click', function() {
                 deletarUsuario(btn.dataset.id);
             });
@@ -177,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         userApi.getAll()
             .then(function(data) {
-                console.log('Dados recebidos:', data);
+                console.log('Dados recebidos (raw):', data);
 
                 // Extrair array de usuários
                 let users = [];
@@ -187,8 +169,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     users = data;
                 }
 
+                console.log('Array extraído:', users);
                 state.usuarios = users;
+
                 logger.log('info', 'Usuários carregados', { count: users.length });
+
+                // Chamar renderização
                 renderizarLista();
             })
             .catch(function(erro) {
@@ -210,8 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
             user_id: state.editandoId || ('u' + Date.now()),
             nome: dom.nome.value.trim(),
             email: dom.email.value.trim(),
-            idade: dom.idade.value ? parseInt(dom.idade.value) : null,
-            ativo: true
+            idade: dom.idade.value ? parseInt(dom.idade.value) : null
         };
 
         if (!dados.nome || !dados.email) {
@@ -243,6 +228,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function iniciarEdicao(id) {
+        console.log('Iniciar edição:', id);
+
         const usuario = state.usuarios.find(function(u) {
             return (u.user_id || u.id) === id;
         });
@@ -264,11 +251,12 @@ document.addEventListener('DOMContentLoaded', function() {
         dom.btnSubmit.textContent = '💾 Atualizar';
         dom.btnCancelar.style.display = 'inline-flex';
 
-        renderizarLista();
         dom.nome.focus();
     }
 
     function deletarUsuario(id) {
+        console.log('Deletar:', id);
+
         const usuario = state.usuarios.find(function(u) {
             return (u.user_id || u.id) === id;
         });
@@ -297,8 +285,6 @@ document.addEventListener('DOMContentLoaded', function() {
         dom.formTitle.textContent = 'Novo Usuário';
         dom.btnSubmit.textContent = '💾 Salvar';
         dom.btnCancelar.style.display = 'none';
-
-        renderizarLista();
     }
 
     // ============================================
@@ -308,5 +294,6 @@ document.addEventListener('DOMContentLoaded', function() {
     dom.form.addEventListener('submit', salvarUsuario);
     dom.btnCancelar.addEventListener('click', resetarFormulario);
 
+    console.log('Iniciando carregamento...');
     carregarUsuarios();
 });
