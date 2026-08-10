@@ -22,8 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const state = {
         usuarios: [],
         editandoId: null,
-        carregando: false,
-        respostaBruta: null
+        carregando: false
     };
 
     const dom = {
@@ -48,7 +47,43 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ============================================
-    // RENDERIZAÇÃO FLEXÍVEL
+    // HELPERS DE FORMATAÇÃO
+    // ============================================
+
+    function formatarIdade(idade) {
+        if (idade === null || idade === undefined) return null;
+        const num = parseInt(idade);
+        return isNaN(num) ? null : num;
+    }
+
+    function formatarValor(valor) {
+        if (valor === null || valor === undefined) return 'N/A';
+        const num = parseFloat(valor);
+        return isNaN(num) ? 'N/A' : 'R$ ' + num.toFixed(2);
+    }
+
+    function formatarEndereco(endereco) {
+        if (!endereco || typeof endereco !== 'object') return null;
+        const partes = [];
+        if (endereco.rua) partes.push(endereco.rua);
+        if (endereco.cidade) partes.push(endereco.cidade);
+        if (endereco.estado) partes.push(endereco.estado);
+        if (endereco.cep) partes.push('CEP: ' + endereco.cep);
+        return partes.length > 0 ? partes.join(' - ') : null;
+    }
+
+    function formatarPedidos(pedidos) {
+        if (!Array.isArray(pedidos) || pedidos.length === 0) return null;
+        return pedidos.length + ' pedido(s)';
+    }
+
+    function formatarInteresses(interesses) {
+        if (!Array.isArray(interesses) || interesses.length === 0) return null;
+        return interesses.join(', ');
+    }
+
+    // ============================================
+    // RENDERIZAÇÃO
     // ============================================
 
     function renderizarLista() {
@@ -59,94 +94,78 @@ document.addEventListener('DOMContentLoaded', function() {
             dom.userCount.textContent = '(' + count + ' usuário' + (count !== 1 ? 's' : '') + ')';
         }
 
-        // Se não houver usuários
         if (!state.usuarios || state.usuarios.length === 0) {
             dom.lista.innerHTML = 
                 '<div class="empty-state">' +
                     '<div class="empty-state-icon">👤</div>' +
                     '<p>Nenhum usuário cadastrado.</p>' +
-                    '<p style="font-size: 0.875rem;">Crie seu primeiro usuário acima! 🚀</p>' +
                 '</div>';
             return;
         }
 
-        // Tentar renderizar como cards, se falhar mostrar JSON
-        try {
-            const html = state.usuarios.map(function(u, index) {
-                // Verificar se u é um objeto válido
-                if (!u || typeof u !== 'object') {
-                    return '<div class="user-card">Item inválido: ' + utils.escapeHtml(String(u)) + '</div>';
-                }
+        const html = state.usuarios.map(function(u, index) {
+            // Extrair campos com múltiplos fallbacks
+            const userId = u.user_id || u.id || ('item_' + index);
+            const nome = u.nome || u.name || 'Sem nome';
+            const email = u.email || u.Email || '';
+            const idade = formatarIdade(u.idade);
+            const ativo = u.ativo === true || u.ativo === 'true';
 
-                const isEditing = state.editandoId === u.user_id ? 'editing' : '';
-                const disabled = state.editandoId ? 'disabled' : '';
+            // Campos opcionais formatados
+            const enderecoStr = formatarEndereco(u.endereco);
+            const pedidosStr = formatarPedidos(u.pedidos);
+            const interessesStr = formatarInteresses(u.interesses);
 
-                // Extrair campos com fallback seguro
-                const userId = u.user_id || u.id || ('item_' + index);
-                const nome = u.nome || u.name || u.Nome || 'Sem nome';
-                const email = u.email || u.Email || u.mail || 'Sem email';
-                const idade = u.idade || u.age || u.Idade;
+            // Badge de status
+            const statusBadge = ativo ? 
+                '<span class="badge-ativo">● Ativo</span>' : 
+                (u.ativo === false ? '<span class="badge-inativo">○ Inativo</span>' : '');
 
-                const idadeStr = idade ? '🎂 ' + idade + ' anos' : '';
-                const idCurto = String(userId).substring(0, 12) + (String(userId).length > 12 ? '...' : '');
+            // Metadados visíveis
+            const metaItems = [];
+            if (idade) metaItems.push('🎂 ' + idade + ' anos');
+            if (enderecoStr) metaItems.push('📍 ' + enderecoStr);
+            if (pedidosStr) metaItems.push('🛒 ' + pedidosStr);
+            if (interessesStr) metaItems.push('❤️ ' + interessesStr);
 
-                return 
-                    '<div class="user-card ' + isEditing + '" data-id="' + utils.escapeHtml(String(userId)) + '">' +
-                        '<div class="user-info">' +
-                            '<h3>' + utils.escapeHtml(String(nome)) + '</h3>' +
-                            '<p>' + utils.escapeHtml(String(email)) + '</p>' +
-                            '<div class="user-meta">' +
-                                (idadeStr ? '<span>' + idadeStr + '</span>' : '') +
-                                '<span>🆔 ' + utils.escapeHtml(idCurto) + '</span>' +
-                            '</div>' +
-                        '</div>' +
-                        '<div class="user-actions">' +
-                            '<button class="btn btn-success btn-sm btn-editar" data-id="' + 
-                                utils.escapeHtml(String(userId)) + '" ' + disabled + '>✏️ Editar</button>' +
-                            '<button class="btn btn-danger btn-sm btn-deletar" data-id="' + 
-                                utils.escapeHtml(String(userId)) + '" ' + disabled + '>🗑️ Deletar</button>' +
-                        '</div>' +
-                    '</div>';
+            const metaHtml = metaItems.map(function(item) {
+                return '<span class="meta-tag">' + item + '</span>';
             }).join('');
 
-            dom.lista.innerHTML = html;
+            return 
+                '<div class="user-card" data-id="' + utils.escapeHtml(String(userId)) + '">' +
+                    '<div class="user-info">' +
+                        '<div class="user-header">' +
+                            '<h3>' + utils.escapeHtml(nome) + '</h3>' +
+                            statusBadge +
+                        '</div>' +
+                        '<p class="user-email">' + utils.escapeHtml(email) + '</p>' +
+                        '<div class="user-meta">' + metaHtml + '</div>' +
+                        '<p class="user-id">🆔 ' + utils.escapeHtml(String(userId)) + '</p>' +
+                    '</div>' +
+                    '<div class="user-actions">' +
+                        '<button class="btn btn-success btn-sm btn-editar" data-id="' + 
+                            utils.escapeHtml(String(userId)) + '">✏️ Editar</button>' +
+                        '<button class="btn btn-danger btn-sm btn-deletar" data-id="' + 
+                            utils.escapeHtml(String(userId)) + '">🗑️ Deletar</button>' +
+                    '</div>' +
+                '</div>';
+        }).join('');
 
-            // Bind de eventos
-            dom.lista.querySelectorAll('.btn-editar').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    iniciarEdicao(btn.dataset.id);
-                });
-            });
-
-            dom.lista.querySelectorAll('.btn-deletar').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    deletarUsuario(btn.dataset.id);
-                });
-            });
-
-        } catch (erro) {
-            console.error('Erro ao renderizar:', erro);
-            // Fallback: mostrar JSON
-            mostrarComoJSON();
-        }
-    }
-
-    function mostrarComoJSON() {
-        let html = '<div style="background:#f5f5f5;padding:1rem;border-radius:8px;">';
-        html += '<h3 style="margin-bottom:0.5rem;">Dados recebidos (modo debug):</h3>';
-        html += '<pre style="background:#1e293b;color:#e5e7eb;padding:1rem;border-radius:4px;overflow:auto;max-height:400px;font-size:0.75rem;">';
-        html += utils.escapeHtml(JSON.stringify(state.usuarios, null, 2));
-        html += '</pre>';
-
-        if (state.respostaBruta) {
-            html += '<h4 style="margin-top:1rem;margin-bottom:0.5rem;">Resposta bruta da API:</h4>';
-            html += '<pre style="background:#451a03;color:#fed7aa;padding:1rem;border-radius:4px;overflow:auto;max-height:200px;font-size:0.75rem;">';
-            html += utils.escapeHtml(JSON.stringify(state.respostaBruta, null, 2));
-            html += '</pre>';
-        }
-
-        html += '</div>';
         dom.lista.innerHTML = html;
+
+        // Bind de eventos
+        dom.lista.querySelectorAll('.btn-editar').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                iniciarEdicao(btn.dataset.id);
+            });
+        });
+
+        dom.lista.querySelectorAll('.btn-deletar').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                deletarUsuario(btn.dataset.id);
+            });
+        });
     }
 
     // ============================================
@@ -159,54 +178,22 @@ document.addEventListener('DOMContentLoaded', function() {
         userApi.getAll()
             .then(function(data) {
                 console.log('Dados recebidos:', data);
-                state.respostaBruta = data;
 
-                // Tentar extrair array de usuários de várias formas possíveis
-                let users = null;
-
-                if (Array.isArray(data)) {
-                    users = data;
-                } else if (data && Array.isArray(data.users)) {
+                // Extrair array de usuários
+                let users = [];
+                if (data && Array.isArray(data.users)) {
                     users = data.users;
-                } else if (data && Array.isArray(data.Users)) {
-                    users = data.Users;
-                } else if (data && Array.isArray(data.items)) {
-                    users = data.items;
-                } else if (data && Array.isArray(data.Items)) {
-                    users = data.Items;
-                } else if (data && typeof data === 'object') {
-                    // Tentar encontrar qualquer array no objeto
-                    for (var key in data) {
-                        if (Array.isArray(data[key])) {
-                            users = data[key];
-                            console.log('Array encontrado na chave:', key);
-                            break;
-                        }
-                    }
-                }
-
-                if (!users) {
-                    console.warn('Não foi possível extrair array de usuários. Estrutura:', data);
-                    users = [];
+                } else if (Array.isArray(data)) {
+                    users = data;
                 }
 
                 state.usuarios = users;
-                logger.log('info', 'Usuários carregados', { 
-                    count: users.length,
-                    estrutura: Object.keys(data || {})
-                });
-
+                logger.log('info', 'Usuários carregados', { count: users.length });
                 renderizarLista();
             })
             .catch(function(erro) {
-                console.error('Erro ao carregar:', erro);
+                console.error('Erro:', erro);
                 utils.mostrarAlerta('error', 'Erro ao carregar: ' + erro.message);
-                dom.lista.innerHTML = 
-                    '<div class="empty-state">' +
-                        '<div class="empty-state-icon">❌</div>' +
-                        '<p>Erro ao carregar usuários.</p>' +
-                        '<p style="font-size: 0.875rem;">' + utils.escapeHtml(erro.message) + '</p>' +
-                    '</div>';
             });
     }
 
@@ -223,7 +210,8 @@ document.addEventListener('DOMContentLoaded', function() {
             user_id: state.editandoId || ('u' + Date.now()),
             nome: dom.nome.value.trim(),
             email: dom.email.value.trim(),
-            idade: parseInt(dom.idade.value) || null
+            idade: dom.idade.value ? parseInt(dom.idade.value) : null,
+            ativo: true
         };
 
         if (!dados.nome || !dados.email) {
@@ -239,16 +227,13 @@ document.addEventListener('DOMContentLoaded', function() {
             userApi.create(dados);
 
         operacao
-            .then(function(resposta) {
-                const msg = state.editandoId ? 
-                    '✅ Usuário atualizado!' : 
-                    '✅ Usuário criado!';
-                utils.mostrarAlerta('success', msg);
+            .then(function() {
+                utils.mostrarAlerta('success', state.editandoId ? 'Atualizado!' : 'Criado!');
                 resetarFormulario();
                 carregarUsuarios();
             })
             .catch(function(erro) {
-                utils.mostrarAlerta('error', '❌ Erro ao salvar: ' + erro.message);
+                utils.mostrarAlerta('error', 'Erro: ' + erro.message);
             })
             .finally(function() {
                 state.carregando = false;
@@ -263,16 +248,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         if (!usuario) {
-            utils.mostrarAlerta('error', 'Usuário não encontrado: ' + id);
+            utils.mostrarAlerta('error', 'Usuário não encontrado');
             return;
         }
 
         state.editandoId = id;
 
         dom.userId.value = usuario.user_id || usuario.id || id;
-        dom.nome.value = usuario.nome || usuario.name || '';
-        dom.email.value = usuario.email || usuario.Email || '';
-        dom.idade.value = usuario.idade || usuario.age || '';
+        dom.nome.value = usuario.nome || '';
+        dom.email.value = usuario.email || '';
+        dom.idade.value = usuario.idade || '';
 
         dom.formIcon.textContent = '✏️';
         dom.formTitle.textContent = 'Editar Usuário';
@@ -281,8 +266,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         renderizarLista();
         dom.nome.focus();
-
-        logger.log('info', 'Iniciada edição', { user_id: id });
     }
 
     function deletarUsuario(id) {
@@ -290,24 +273,19 @@ document.addEventListener('DOMContentLoaded', function() {
             return (u.user_id || u.id) === id;
         });
 
-        if (!usuario) {
-            utils.mostrarAlerta('error', 'Usuário não encontrado');
-            return;
-        }
+        if (!usuario) return;
 
-        const nome = usuario.nome || usuario.name || 'este usuário';
+        const nome = usuario.nome || 'este usuário';
 
-        if (!confirm('Deletar "' + nome + '"?')) {
-            return;
-        }
+        if (!confirm('Deletar "' + nome + '"?')) return;
 
         userApi.delete(id)
             .then(function() {
-                utils.mostrarAlerta('success', '🗑️ Deletado!');
+                utils.mostrarAlerta('success', 'Deletado!');
                 carregarUsuarios();
             })
             .catch(function(erro) {
-                utils.mostrarAlerta('error', '❌ Erro ao deletar: ' + erro.message);
+                utils.mostrarAlerta('error', 'Erro: ' + erro.message);
             });
     }
 
@@ -330,16 +308,5 @@ document.addEventListener('DOMContentLoaded', function() {
     dom.form.addEventListener('submit', salvarUsuario);
     dom.btnCancelar.addEventListener('click', resetarFormulario);
 
-    logger.log('info', 'Aplicação iniciada', { 
-        apiUrl: config.API_BASE_URL
-    });
-
     carregarUsuarios();
-
-    window.UsuariosModule = {
-        state: state,
-        recarregar: carregarUsuarios,
-        resetar: resetarFormulario,
-        mostrarJSON: mostrarComoJSON
-    };
 });
