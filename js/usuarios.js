@@ -2,21 +2,24 @@
  * Módulo de Usuários - Controller da interface
  */
 
-// Aguardar carregamento do DOM e do API
+// Aguardar carregamento do DOM
 document.addEventListener('DOMContentLoaded', function() {
     'use strict';
 
     // Verificar dependência
     if (!window.API) {
-        console.error('Módulo API não carregado. Verifique se api.js está incluído antes de usuarios.js');
-        alert('Erro: Módulo API não carregado. Verifique a ordem dos scripts.');
+        console.error('Módulo API não carregado');
+        alert('Erro: Módulo API não carregado');
         return;
     }
 
-    const { users: userApi, utils, logger, config } = window.API;
+    const API = window.API;
+    const userApi = API.users;
+    const utils = API.utils;
+    const logger = API.logger;
+    const config = API.config;
 
-    // Log de inicialização
-    console.log('Inicializando módulo de usuários. API URL:', config.API_BASE_URL);
+    console.log('Inicializando usuarios.js. API URL:', config.API_BASE_URL);
 
     // ============================================
     // ESTADO
@@ -42,17 +45,14 @@ document.addEventListener('DOMContentLoaded', function() {
         listStatus: document.getElementById('list-status'),
         userCount: document.getElementById('user-count'),
         lista: document.getElementById('usuarios-lista'),
-
-        // Inputs
         userId: document.getElementById('user-id'),
         nome: document.getElementById('user-nome'),
         email: document.getElementById('user-email'),
         idade: document.getElementById('user-idade')
     };
 
-    // Verificar elementos críticos
     if (!dom.form || !dom.lista) {
-        console.error('Elementos críticos do DOM não encontrados');
+        console.error('Elementos do DOM não encontrados');
         return;
     }
 
@@ -64,56 +64,56 @@ document.addEventListener('DOMContentLoaded', function() {
         utils.setLoading(dom.listStatus, false);
 
         if (dom.userCount) {
-            dom.userCount.textContent = `(${state.usuarios.length} usuário${state.usuarios.length !== 1 ? 's' : ''})`;
+            dom.userCount.textContent = '(' + state.usuarios.length + ' usuário' + 
+                (state.usuarios.length !== 1 ? 's' : '') + ')';
         }
 
         if (state.usuarios.length === 0) {
-            dom.lista.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">👤</div>
-                    <p>Nenhum usuário cadastrado.</p>
-                    <p style="font-size: 0.875rem;">Crie seu primeiro usuário acima! 🚀</p>
-                </div>
-            `;
+            dom.lista.innerHTML = 
+                '<div class="empty-state">' +
+                    '<div class="empty-state-icon">👤</div>' +
+                    '<p>Nenhum usuário cadastrado.</p>' +
+                    '<p style="font-size: 0.875rem;">Crie seu primeiro usuário acima! 🚀</p>' +
+                '</div>';
             return;
         }
 
-        dom.lista.innerHTML = state.usuarios.map(u => `
-            <div class="user-card ${state.editandoId === u.user_id ? 'editing' : ''}" data-id="${utils.escapeHtml(u.user_id)}">
-                <div class="user-info">
-                    <h3>${utils.escapeHtml(u.nome)}</h3>
-                    <p>${utils.escapeHtml(u.email)}</p>
-                    <div class="user-meta">
-                        ${u.idade ? `<span>🎂 ${u.idade} anos</span>` : ''}
-                        <span>🆔 ${utils.escapeHtml(String(u.user_id).substring(0, 8))}...</span>
-                    </div>
-                </div>
-                <div class="user-actions">
-                    <button 
-                        class="btn btn-success btn-sm btn-editar" 
-                        data-id="${utils.escapeHtml(u.user_id)}"
-                        ${state.editandoId ? 'disabled' : ''}
-                    >
-                        ✏️ Editar
-                    </button>
-                    <button 
-                        class="btn btn-danger btn-sm btn-deletar" 
-                        data-id="${utils.escapeHtml(u.user_id)}"
-                        ${state.editandoId ? 'disabled' : ''}
-                    >
-                        🗑️ Deletar
-                    </button>
-                </div>
-            </div>
-        `).join('');
+        dom.lista.innerHTML = state.usuarios.map(function(u) {
+            const isEditing = state.editandoId === u.user_id ? 'editing' : '';
+            const disabled = state.editandoId ? 'disabled' : '';
+            const idade = u.idade ? '🎂 ' + u.idade + ' anos' : '';
+            const idCurto = String(u.user_id).substring(0, 8) + '...';
 
-        // Bind de eventos nos botões dinâmicos
-        dom.lista.querySelectorAll('.btn-editar').forEach(btn => {
-            btn.addEventListener('click', () => iniciarEdicao(btn.dataset.id));
+            return 
+                '<div class="user-card ' + isEditing + '" data-id="' + utils.escapeHtml(u.user_id) + '">' +
+                    '<div class="user-info">' +
+                        '<h3>' + utils.escapeHtml(u.nome) + '</h3>' +
+                        '<p>' + utils.escapeHtml(u.email) + '</p>' +
+                        '<div class="user-meta">' +
+                            (u.idade ? '<span>' + idade + '</span>' : '') +
+                            '<span>🆔 ' + idCurto + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="user-actions">' +
+                        '<button class="btn btn-success btn-sm btn-editar" data-id="' + 
+                            utils.escapeHtml(u.user_id) + '" ' + disabled + '>✏️ Editar</button>' +
+                        '<button class="btn btn-danger btn-sm btn-deletar" data-id="' + 
+                            utils.escapeHtml(u.user_id) + '" ' + disabled + '>🗑️ Deletar</button>' +
+                    '</div>' +
+                '</div>';
+        }).join('');
+
+        // Bind de eventos
+        dom.lista.querySelectorAll('.btn-editar').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                iniciarEdicao(btn.dataset.id);
+            });
         });
 
-        dom.lista.querySelectorAll('.btn-deletar').forEach(btn => {
-            btn.addEventListener('click', () => deletarUsuario(btn.dataset.id));
+        dom.lista.querySelectorAll('.btn-deletar').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                deletarUsuario(btn.dataset.id);
+            });
         });
     }
 
@@ -121,27 +121,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // OPERAÇÕES CRUD
     // ============================================
 
-    async function carregarUsuarios() {
+    function carregarUsuarios() {
         utils.setLoading(dom.listStatus, true);
 
-        try {
-            const data = await userApi.getAll();
-            state.usuarios = data.users || [];
-            renderizarLista();
-            logger.log('info', 'Usuários carregados', { count: state.usuarios.length });
-        } catch (erro) {
-            utils.mostrarAlerta('error', `Erro ao carregar: ${erro.message}`);
-            dom.lista.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">❌</div>
-                    <p>Erro ao carregar usuários.</p>
-                    <p style="font-size: 0.875rem;">${utils.escapeHtml(erro.message)}</p>
-                </div>
-            `;
-        }
+        userApi.getAll()
+            .then(function(data) {
+                state.usuarios = data.users || [];
+                renderizarLista();
+                logger.log('info', 'Usuários carregados', { count: state.usuarios.length });
+            })
+            .catch(function(erro) {
+                utils.mostrarAlerta('error', 'Erro ao carregar: ' + erro.message);
+                dom.lista.innerHTML = 
+                    '<div class="empty-state">' +
+                        '<div class="empty-state-icon">❌</div>' +
+                        '<p>Erro ao carregar usuários.</p>' +
+                        '<p style="font-size: 0.875rem;">' + utils.escapeHtml(erro.message) + '</p>' +
+                    '</div>';
+            });
     }
 
-    async function salvarUsuario(evento) {
+    function salvarUsuario(evento) {
         evento.preventDefault();
 
         if (state.carregando) return;
@@ -151,13 +151,12 @@ document.addEventListener('DOMContentLoaded', function() {
         utils.setLoading(dom.formStatus, true);
 
         const dados = {
-            user_id: state.editandoId || `u${Date.now()}`,
+            user_id: state.editandoId || ('u' + Date.now()),
             nome: dom.nome.value.trim(),
             email: dom.email.value.trim(),
-            idade: parseInt(dom.idade.value) || null,
+            idade: parseInt(dom.idade.value) || null
         };
 
-        // Validação básica
         if (!dados.nome || !dados.email) {
             utils.mostrarAlerta('error', 'Nome e e-mail são obrigatórios');
             state.carregando = false;
@@ -166,28 +165,34 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        try {
-            if (state.editandoId) {
-                await userApi.update(state.editandoId, dados);
-                utils.mostrarAlerta('success', '✅ Usuário atualizado com sucesso!');
-            } else {
-                await userApi.create(dados);
-                utils.mostrarAlerta('success', '✅ Usuário criado com sucesso!');
-            }
+        const operacao = state.editandoId ? 
+            userApi.update(state.editandoId, dados) : 
+            userApi.create(dados);
 
-            resetarFormulario();
-            await carregarUsuarios();
-        } catch (erro) {
-            utils.mostrarAlerta('error', `❌ Erro ao salvar: ${erro.message}`);
-        } finally {
-            state.carregando = false;
-            dom.btnSubmit.disabled = false;
-            utils.setLoading(dom.formStatus, false);
-        }
+        operacao
+            .then(function() {
+                const msg = state.editandoId ? 
+                    '✅ Usuário atualizado com sucesso!' : 
+                    '✅ Usuário criado com sucesso!';
+                utils.mostrarAlerta('success', msg);
+                resetarFormulario();
+                return carregarUsuarios();
+            })
+            .catch(function(erro) {
+                utils.mostrarAlerta('error', '❌ Erro ao salvar: ' + erro.message);
+            })
+            .finally(function() {
+                state.carregando = false;
+                dom.btnSubmit.disabled = false;
+                utils.setLoading(dom.formStatus, false);
+            });
     }
 
-    async function iniciarEdicao(id) {
-        const usuario = state.usuarios.find(u => u.user_id === id);
+    function iniciarEdicao(id) {
+        const usuario = state.usuarios.find(function(u) {
+            return u.user_id === id;
+        });
+
         if (!usuario) {
             utils.mostrarAlerta('error', 'Usuário não encontrado');
             return;
@@ -211,21 +216,25 @@ document.addEventListener('DOMContentLoaded', function() {
         logger.log('info', 'Iniciada edição', { user_id: id });
     }
 
-    async function deletarUsuario(id) {
-        const usuario = state.usuarios.find(u => u.user_id === id);
+    function deletarUsuario(id) {
+        const usuario = state.usuarios.find(function(u) {
+            return u.user_id === id;
+        });
+
         if (!usuario) return;
 
-        if (!confirm(`Tem certeza que deseja deletar "${usuario.nome}"?`)) {
+        if (!confirm('Tem certeza que deseja deletar "' + usuario.nome + '"?')) {
             return;
         }
 
-        try {
-            await userApi.delete(id);
-            utils.mostrarAlerta('success', '🗑️ Usuário deletado com sucesso!');
-            await carregarUsuarios();
-        } catch (erro) {
-            utils.mostrarAlerta('error', `❌ Erro ao deletar: ${erro.message}`);
-        }
+        userApi.delete(id)
+            .then(function() {
+                utils.mostrarAlerta('success', '🗑️ Usuário deletado com sucesso!');
+                return carregarUsuarios();
+            })
+            .catch(function(erro) {
+                utils.mostrarAlerta('error', '❌ Erro ao deletar: ' + erro.message);
+            });
     }
 
     function resetarFormulario() {
@@ -258,9 +267,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     carregarUsuarios();
 
-    // Expor API pública do módulo (para debug)
+    // Expor para debug
     window.UsuariosModule = {
-        state,
+        state: state,
         recarregar: carregarUsuarios,
         resetar: resetarFormulario
     };

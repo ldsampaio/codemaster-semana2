@@ -16,30 +16,34 @@ if (!CONFIG.API_BASE_URL) {
 const Logger = {
     logs: [],
 
-    log(tipo, mensagem, dados = null) {
+    log: function(tipo, mensagem, dados) {
+        dados = dados || null;
         const entry = {
             timestamp: new Date().toISOString(),
-            tipo,
-            mensagem,
-            dados
+            tipo: tipo,
+            mensagem: mensagem,
+            dados: dados
         };
         this.logs.unshift(entry);
         if (this.logs.length > 50) this.logs.pop();
         this.atualizarDebug();
     },
 
-    atualizarDebug() {
+    atualizarDebug: function() {
         const el = document.getElementById('debug-logs');
         if (!el) return;
 
-        el.textContent = this.logs.map(l => 
-            `[${l.timestamp}] ${l.tipo.toUpperCase()}: ${l.mensagem}` +
-            (l.dados ? '\n' + JSON.stringify(l.dados, null, 2) : '')
-        ).join('\n---\n');
+        el.textContent = this.logs.map(function(l) {
+            let msg = '[' + l.timestamp + '] ' + l.tipo.toUpperCase() + ': ' + l.mensagem;
+            if (l.dados) {
+                msg += '\n' + JSON.stringify(l.dados, null, 2);
+            }
+            return msg;
+        }).join('\n---\n');
     },
 
-    getLogs() {
-        return [...this.logs];
+    getLogs: function() {
+        return this.logs.slice();
     }
 };
 
@@ -47,44 +51,58 @@ const Logger = {
 // HTTP CLIENT
 // ============================================
 
-async function apiRequest(endpoint, method = 'GET', body = null) {
-    const url = `${CONFIG.API_BASE_URL}${endpoint}`;
+function apiRequest(endpoint, method, body) {
+    method = method || 'GET';
+    body = body || null;
+
+    const url = CONFIG.API_BASE_URL + endpoint;
     const options = {
-        method,
+        method: method,
         headers: {
-            'Content-Type': 'application/json',
-        },
+            'Content-Type': 'application/json'
+        }
     };
 
     if (body) {
         options.body = JSON.stringify(body);
     }
 
-    Logger.log('request', `${method} ${endpoint}`, { url, body });
+    Logger.log('request', method + ' ' + endpoint, { url: url, body: body });
 
-    try {
-        const response = await fetch(url, options);
-        const data = await response.json().catch(() => ({ 
-            error: 'Resposta não-JSON',
-            raw: await response.text().catch(() => null)
-        }));
+    return fetch(url, options)
+        .then(function(response) {
+            // Log da resposta
+            Logger.log('response', method + ' ' + endpoint + ' → ' + response.status, { 
+                status: response.status
+            });
 
-        Logger.log('response', `${method} ${endpoint} → ${response.status}`, { 
-            status: response.status, 
-            data 
+            // Clonar resposta para tentar JSON
+            const clone = response.clone();
+
+            return response.json()
+                .then(function(data) {
+                    if (!response.ok) {
+                        throw new Error(data.error || 'HTTP ' + response.status);
+                    }
+                    return data;
+                })
+                .catch(function(err) {
+                    // Se não for JSON, tentar texto
+                    return clone.text()
+                        .then(function(text) {
+                            throw new Error('Resposta não-JSON: ' + text.substring(0, 100));
+                        })
+                        .catch(function() {
+                            throw new Error('Erro ao parsear resposta: ' + err.message);
+                        });
+                });
+        })
+        .catch(function(erro) {
+            Logger.log('error', method + ' ' + endpoint + ' falhou', { 
+                mensagem: erro.message 
+            });
+            throw erro;
         });
-
-        if (!response.ok) {
-            throw new Error(data.error || `HTTP ${response.status}`);
-        }
-
-        return data;
-    } catch (erro) {
-        Logger.log('error', `${method} ${endpoint} falhou`, { 
-            mensagem: erro.message 
-        });
-        throw erro;
-    }
 }
 
 // ============================================
@@ -92,11 +110,11 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
 // ============================================
 
 const userApi = {
-    getAll: () => apiRequest('/users'),
-    getById: (id) => apiRequest(`/users/${id}`),
-    create: (data) => apiRequest('/users', 'POST', data),
-    update: (id, data) => apiRequest(`/users/${id}`, 'PUT', data),
-    delete: (id) => apiRequest(`/users/${id}`, 'DELETE'),
+    getAll: function() { return apiRequest('/users'); },
+    getById: function(id) { return apiRequest('/users/' + id); },
+    create: function(data) { return apiRequest('/users', 'POST', data); },
+    update: function(id, data) { return apiRequest('/users/' + id, 'PUT', data); },
+    delete: function(id) { return apiRequest('/users/' + id, 'DELETE'); }
 };
 
 // ============================================
@@ -104,38 +122,41 @@ const userApi = {
 // ============================================
 
 const Utils = {
-    escapeHtml(text) {
+    escapeHtml: function(text) {
         if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     },
 
-    mostrarAlerta(tipo, mensagem, duracao = 5000) {
+    mostrarAlerta: function(tipo, mensagem, duracao) {
+        duracao = duracao || 5000;
         const container = document.getElementById('alert-container');
+
         if (!container) {
             console.error('Container de alertas não encontrado');
-            alert(mensagem); // fallback
+            alert(mensagem);
             return;
         }
 
         const div = document.createElement('div');
-        div.className = `alert alert-${tipo}`;
-        div.innerHTML = `
-            <span>${tipo === 'success' ? '✅' : tipo === 'error' ? '❌' : 'ℹ️'}</span>
-            <span>${this.escapeHtml(mensagem)}</span>
-        `;
+        div.className = 'alert alert-' + tipo;
+
+        const icon = tipo === 'success' ? '✅' : tipo === 'error' ? '❌' : 'ℹ️';
+        div.innerHTML = '<span>' + icon + '</span><span>' + this.escapeHtml(mensagem) + '</span>';
 
         container.appendChild(div);
 
         if (duracao > 0) {
-            setTimeout(() => div.remove(), duracao);
+            setTimeout(function() {
+                if (div.parentNode) div.parentNode.removeChild(div);
+            }, duracao);
         }
 
         return div;
     },
 
-    setLoading(elemento, carregando) {
+    setLoading: function(elemento, carregando) {
         if (elemento) {
             elemento.style.display = carregando ? 'inline-flex' : 'none';
         }
@@ -153,3 +174,5 @@ window.API = {
     utils: Utils,
     request: apiRequest
 };
+
+console.log('API.js carregado com sucesso. URL:', CONFIG.API_BASE_URL);
